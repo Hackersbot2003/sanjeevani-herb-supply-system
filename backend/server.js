@@ -10,23 +10,26 @@ require('dotenv').config();
 const app = express();
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://sih-frontend-lyart.vercel.app',
-  'https://sih-frontend-railway.vercel.app'
-];
+// const allowedOrigins = [
+//   'http://localhost:5173',
+//   'http://localhost:3000',
+//   'https://sih-frontend-lyart.vercel.app',
+//   'https://sih-frontend-railway.vercel.app'
+// ];
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(new Error('CORS policy violation'), false);
-    }
-    return callback(null, true);
-  },
-  credentials: true
-}));
+
+app.use(cors());
+
+// app.use(cors({
+//   origin: function (origin, callback) {
+//     if (!origin) return callback(null, true);
+//     if (allowedOrigins.indexOf(origin) === -1) {
+//       return callback(new Error('CORS policy violation'), false);
+//     }
+//     return callback(null, true);
+//   },
+//   credentials: true
+// }));
 
 app.use(express.json({ limit: '10mb' })); // allow base64 QR images
 app.use(express.urlencoded({ extended: true }));
