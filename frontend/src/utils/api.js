@@ -46,6 +46,7 @@ export const labAPI = {
 export const manufactureAPI = {
   create: (body) => api('/manufacture', { method: 'POST', body: JSON.stringify(body) }),
   updateQR: (id, body) => api(`/manufacture/${id}/qr`, { method: 'PATCH', body: JSON.stringify(body) }),
+  dispatch: (id) => api(`/manufacture/${id}/dispatch`, { method: 'PATCH' }),  // ← ADD THIS LINE
   getById: (id) => api(`/manufacture/${id}`),
   getMy: () => api('/manufacture/my'),
   getConsumer: (id) => api(`/manufacture/consumer/${id}`),

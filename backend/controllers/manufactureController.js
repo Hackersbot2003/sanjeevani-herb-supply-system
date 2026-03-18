@@ -174,3 +174,42 @@ exports.getConsumerView = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// PATCH /api/manufacture/:id/dispatch — mark as dispatched
+exports.dispatchManufacture = async (req, res) => {
+  try {
+    const manufacture = await Manufacture.findOneAndUpdate(
+      { _id: req.params.id, manufacturer: req.user._id },
+      { dispatched: true },
+      { new: true }
+    );
+    if (!manufacture) return res.status(404).json({ success: false, error: 'Manufacture record not found' });
+
+    // Update herb status to dispatched
+    await require('../models/Herb').findByIdAndUpdate(manufacture.herb, { status: 'dispatched' });
+
+    res.json({ success: true, manufacture });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// PATCH /api/manufacture/:id/dispatch — mark as dispatched
+exports.dispatchManufacture = async (req, res) => {
+  try {
+    const manufacture = await Manufacture.findOneAndUpdate(
+      { _id: req.params.id, manufacturer: req.user._id },
+      { dispatched: true },
+      { new: true }
+    );
+    if (!manufacture) return res.status(404).json({ success: false, error: 'Manufacture record not found or not yours' });
+
+    // Update herb status to dispatched
+    await Herb.findByIdAndUpdate(manufacture.herb, { status: 'dispatched' });
+
+    res.json({ success: true, manufacture });
+  } catch (err) {
+    console.error('dispatchManufacture error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+};

@@ -6,7 +6,7 @@ import {
   PageLoader, Alert, SectionCard, Badge, QRDisplay,
   QRScanner, FormInput, PrimaryBtn, Spinner, StatCard, InfoRow
 } from '../components/UI';
-import { Factory, QrCode, Package, CheckCircle } from 'lucide-react';
+import { Factory, QrCode, Package, CheckCircle, Truck } from 'lucide-react';
 
 const PROCESS_OPTIONS = ['Cleaning', 'Drying', 'Grinding', 'Extraction', 'Distillation', 'Packaging', 'Quality Check'];
 
@@ -14,6 +14,7 @@ export default function ManufactureDashboard({ user }) {
   const [myRecords, setMyRecords] = useState([]);
   const [loadingRecords, setLoadingRecords] = useState(true);
   const [error, setError] = useState('');
+  const [dispatchingId, setDispatchingId] = useState(null);
 
   const [showScanner, setShowScanner] = useState(false);
   const [scannedLab, setScannedLab] = useState(null);
@@ -87,6 +88,26 @@ export default function ManufactureDashboard({ user }) {
     }
   };
 
+  const handleDispatch = async (id) => {
+    if (!window.confirm('Mark this product as dispatched? This cannot be undone.')) return;
+    setDispatchingId(id);
+    setError('');
+    try {
+      await manufactureAPI.dispatch(id);
+      // Update local state immediately
+      setMyRecords(prev =>
+        prev.map(r => r._id === id ? { ...r, dispatched: true } : r)
+      );
+    } catch (err) {
+      setError('Dispatch failed: ' + err.message);
+    } finally {
+      setDispatchingId(null);
+    }
+  };
+
+  const dispatched = myRecords.filter(r => r.dispatched).length;
+  const pending = myRecords.filter(r => !r.dispatched).length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -101,9 +122,11 @@ export default function ManufactureDashboard({ user }) {
 
       {error && <Alert type="error" message={error} />}
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <StatCard title="Products Made" value={myRecords.length} icon={<Package size={22} />} color="orange" />
-        <StatCard title="Dispatched" value={myRecords.filter(r => r.dispatched).length} icon={<CheckCircle size={22} />} color="green" />
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCard title="Total Products" value={myRecords.length} icon={<Package size={22} />} color="orange" />
+        <StatCard title="In Stock" value={pending} icon={<Factory size={22} />} color="blue" />
+        <StatCard title="Dispatched" value={dispatched} icon={<Truck size={22} />} color="green" />
         <div className="col-span-2 sm:col-span-1 bg-white rounded-xl shadow-md border border-gray-100 p-4 flex items-center justify-center">
           <button
             onClick={() => setShowScanner(true)}
@@ -116,6 +139,7 @@ export default function ManufactureDashboard({ user }) {
 
       {showScanner && <QRScanner onScan={handleScan} onClose={() => setShowScanner(false)} />}
 
+      {/* Manufacture Form */}
       {scannedLab && !qrResult && (
         <SectionCard title="🏭 Manufacture Details">
           <div className="mb-5 p-4 bg-purple-50 rounded-xl border border-purple-200">
@@ -176,6 +200,7 @@ export default function ManufactureDashboard({ user }) {
         </SectionCard>
       )}
 
+      {/* QR Result */}
       {qrResult && (
         <SectionCard>
           <QRDisplay
@@ -184,19 +209,18 @@ export default function ManufactureDashboard({ user }) {
             title="🎉 Product Complete! Consumer QR Generated"
           />
           <p className="text-center text-sm text-gray-500 mt-3">
-            Consumers can scan this QR to see the complete journey of this product — from farm to factory.
+            Consumers can scan this QR to see the complete journey from farm to factory.
           </p>
-          <div className="text-center mt-3">
+          <div className="text-center mt-3 flex gap-4 justify-center">
             <a href={qrResult.qrImage} download="consumer-qr.png" className="text-sm text-[#133215] font-semibold hover:underline">
               ⬇ Download QR
             </a>
-            <span className="mx-3 text-gray-300">|</span>
             <button onClick={() => setQrResult(null)} className="text-sm text-gray-500 hover:text-gray-700">Done</button>
           </div>
         </SectionCard>
       )}
 
-      {/* My Records */}
+      {/* My Products */}
       <div>
         <h2 className="text-lg font-bold text-gray-700 mb-4">My Products ({myRecords.length})</h2>
         {loadingRecords ? <PageLoader /> : myRecords.length === 0 ? (
@@ -213,26 +237,75 @@ export default function ManufactureDashboard({ user }) {
                 <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
                   <div>
                     <h3 className="font-bold text-lg text-[#133215]">{rec.productName}</h3>
-                    <p className="text-sm text-gray-500">{rec.herbName} • {rec.quantity} kg • Batch: {rec.batchNumber || '—'}</p>
+                    <p className="text-sm text-gray-500">
+                      {rec.herbName} • {rec.quantity} kg
+                      {rec.batchNumber && ` • Batch: ${rec.batchNumber}`}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      Manufactured: {new Date(rec.createdAt).toLocaleDateString('en-IN')}
+                      {rec.expiryDate && ` • Expires: ${new Date(rec.expiryDate).toLocaleDateString('en-IN')}`}
+                    </p>
                   </div>
-                  <Badge label={rec.dispatched ? 'Dispatched' : 'In Stock'} color={rec.dispatched ? 'green' : 'orange'} />
+                  <Badge
+                    label={rec.dispatched ? '✅ Dispatched' : '📦 In Stock'}
+                    color={rec.dispatched ? 'green' : 'orange'}
+                  />
                 </div>
-                <div className="flex items-center gap-3">
-                  {rec.lab?.qualityAssurance && (
-                    <Badge label={`Lab: ${rec.lab.qualityAssurance}`} color={rec.lab.qualityAssurance === 'Passed' ? 'green' : 'red'} />
-                  )}
-                  {rec.lab?.rating && <Badge label={`Rating: ${rec.lab.rating}/10`} color="purple" />}
-                </div>
-                {rec.qrImage && (
-                  <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100">
-                    <img src={rec.qrImage} alt="QR" className="w-12 h-12 rounded border border-gray-200" />
-                    <div>
-                      <p className="text-sm font-semibold text-gray-700">Consumer QR Ready</p>
-                      <a href={rec.qrImage} download={`product-qr-${rec._id}.png`} className="text-xs text-blue-600 hover:underline">Download</a>
-                    </div>
+
+                {/* Lab quality info */}
+                {rec.lab && (
+                  <div className="flex gap-2 flex-wrap mb-3">
+                    <Badge label={`Lab: ${rec.lab.qualityAssurance || '—'}`} color={rec.lab?.qualityAssurance === 'Passed' ? 'green' : 'red'} />
+                    {rec.lab?.rating && <Badge label={`Rating: ${rec.lab.rating}/10`} color="purple" />}
                   </div>
                 )}
-                <p className="text-xs text-gray-400 mt-2">{new Date(rec.createdAt).toLocaleDateString('en-IN')}</p>
+
+                {/* Processes */}
+                {rec.processes?.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap mb-3">
+                    {rec.processes.map(p => (
+                      <span key={p} className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{p}</span>
+                    ))}
+                  </div>
+                )}
+
+                {/* QR + Dispatch row */}
+                <div className="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-gray-100">
+                  {/* QR code */}
+                  {rec.qrImage ? (
+                    <div className="flex items-center gap-3">
+                      <img src={rec.qrImage} alt="QR" className="w-12 h-12 rounded border border-gray-200" />
+                      <div>
+                        <p className="text-sm font-semibold text-gray-700">Consumer QR Ready</p>
+                        <a href={rec.qrImage} download={`product-qr-${rec._id}.png`} className="text-xs text-blue-600 hover:underline">
+                          ⬇ Download QR
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-400">No QR generated</p>
+                  )}
+
+                  {/* Dispatch button */}
+                  {!rec.dispatched ? (
+                    <button
+                      onClick={() => handleDispatch(rec._id)}
+                      disabled={dispatchingId === rec._id}
+                      className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white text-sm font-bold rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {dispatchingId === rec._id ? (
+                        <><Spinner size="sm" /> Dispatching...</>
+                      ) : (
+                        <><Truck size={16} /> Dispatch Product</>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 text-green-600 text-sm font-semibold">
+                      <CheckCircle size={18} />
+                      <span>Dispatched to market</span>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
