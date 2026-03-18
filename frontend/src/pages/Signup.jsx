@@ -1,132 +1,196 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import SignupImage from '../assets/farmerimage2.jpg';
 import { authAPI } from '../utils/api';
-import { FormInput, FormSelect, Alert, Spinner } from '../components/UI';
 
-const ROLES = ['farmer', 'transporter', 'lab', 'manufacturer', 'government'];
-const GENDERS = ['male', 'female', 'other'];
-
-export default function Signup({ onSignIn }) {
-  const [step, setStep] = useState(1); // 1: account, 2: details
+const Signup = ({ onSignIn }) => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [form, setForm] = useState({
-    name: '', age: '', gender: '',
-    phoneNumber: '', password: '', confirmPassword: '',
-    role: '', region: '', pincode: '',
-    city: '', state: '',
-    organizationName: '', licenseNumber: '',
+  const navigate = useNavigate();
+
+  const [formData, setFormData] = useState({
+    name: "",
+    age: "",
+    region: "",
+    phoneNumber: "",
+    password: "",
+    confirmPassword: "",
+    role: "",
+    gender: "",
+    pincode: "",
+    city: "",
+    state: "",
+    organizationName: "",
   });
 
-  const set = (e) => {
-    setForm(p => ({ ...p, [e.target.name]: e.target.value }));
-    setError('');
+  const roles = ["farmer", "transporter", "lab", "manufacturer", "government"];
+  const genders = ["male", "female", "other"];
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleNext = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.phoneNumber || !form.password || !form.role || !form.gender || !form.age) {
-      return setError('Please fill all required fields');
+    if (!formData.name || !formData.phoneNumber || !formData.password || !formData.role || !formData.gender || !formData.age || !formData.region || !formData.pincode) {
+      return alert("Please fill all required fields");
     }
-    if (!/^\d{10}$/.test(form.phoneNumber)) return setError('Phone number must be exactly 10 digits');
-    if (form.password.length < 6) return setError('Password must be at least 6 characters');
-    if (form.password !== form.confirmPassword) return setError('Passwords do not match');
-    setStep(2);
-  };
+    if (!/^\d{10}$/.test(formData.phoneNumber)) return alert("Phone number must be 10 digits");
+    if (formData.password.length < 6) return alert("Password must be at least 6 characters");
+    if (formData.password !== formData.confirmPassword) return alert("Passwords do not match");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.region || !form.pincode) return setError('Region and Pincode are required');
-    setLoading(true);
-    setError('');
     try {
-      const { confirmPassword, ...payload } = form;
+      setLoading(true);
+      const { confirmPassword, ...payload } = formData;
       payload.age = Number(payload.age);
       const data = await authAPI.signup(payload);
-      onSignIn(data.user, data.token);
+      alert("✅ Registration successful! Welcome to Sanjeevani.");
+      if (onSignIn) onSignIn(data.user, data.token);
+      navigate("/dashboard");
     } catch (err) {
-      setError(err.message);
+      alert("❌ " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const needsOrg = ['transporter', 'lab', 'manufacturer'].includes(form.role);
+  const needsOrg = ["transporter", "lab", "manufacturer"].includes(formData.role);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#133215] to-[#1a5c1e] flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden">
-        {/* Header */}
-        <div className="bg-[#133215] px-8 py-6 text-white">
-          <h1 className="text-2xl font-bold">🌿 Join Sanjeevani</h1>
-          <p className="text-gray-300 text-sm mt-1">Create your account to get started</p>
-          {/* Step indicator */}
-          <div className="flex gap-2 mt-4">
-            {[1, 2].map(s => (
-              <div key={s} className={`h-1.5 flex-1 rounded-full transition-all ${s <= step ? 'bg-[#92B775]' : 'bg-white/20'}`} />
-            ))}
-          </div>
-          <p className="text-xs text-gray-400 mt-2">Step {step} of 2</p>
+    <div className="flex justify-center items-center min-h-screen bg-black/15 p-4 font-sans">
+      <div className="w-full max-w-4xl mx-auto bg-white rounded-2xl shadow-xl grid lg:grid-cols-2">
+        
+        {/* Left Panel: Image */}
+        <div className="hidden lg:block">
+          <img
+            src={SignupImage}
+            alt="A farmer in a field"
+            className="w-full h-full object-cover opacity-97 rounded-l-2xl"
+          />
         </div>
 
-        <div className="px-8 py-6">
-          {error && <div className="mb-4"><Alert type="error" message={error} /></div>}
+        {/* Right Panel: Form */}
+        <div className="p-8 flex flex-col justify-center overflow-y-auto max-h-screen">
+          <div className="w-full max-w-sm mx-auto">
 
-          {step === 1 && (
-            <form onSubmit={handleNext} className="space-y-4">
-              <h2 className="font-semibold text-gray-700 text-lg">Account Details</h2>
-              <div className="grid grid-cols-2 gap-4">
-                <FormInput label="Full Name" name="name" value={form.name} onChange={set} placeholder="Your name" required />
-                <FormInput label="Age" name="age" type="number" value={form.age} onChange={set} placeholder="Age" required />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <FormSelect label="Gender" name="gender" value={form.gender} onChange={set} options={GENDERS} required />
-                <FormSelect label="Role" name="role" value={form.role} onChange={set} options={ROLES} required />
-              </div>
-              <FormInput label="Phone Number (10 digits)" name="phoneNumber" type="tel" value={form.phoneNumber} onChange={set} placeholder="9876543210" required />
-              <FormInput label="Password" name="password" type="password" value={form.password} onChange={set} placeholder="Min 6 characters" required />
-              <FormInput label="Confirm Password" name="confirmPassword" type="password" value={form.confirmPassword} onChange={set} placeholder="Repeat password" required />
-              <button type="submit" className="w-full py-3 bg-[#133215] text-white font-bold rounded-xl hover:bg-[#1a431d] transition">
-                Next →
-              </button>
-            </form>
-          )}
+            <div className="text-right mb-4">
+              <p className="text-sm text-gray-600">
+                Already have an account?{" "}
+                <Link to="/signin" className="font-semibold text-[#133215] hover:underline">
+                  Sign In
+                </Link>
+              </p>
+            </div>
 
-          {step === 2 && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="flex items-center gap-2 mb-2">
-                <button type="button" onClick={() => setStep(1)} className="text-gray-400 hover:text-gray-700">← Back</button>
-                <h2 className="font-semibold text-gray-700 text-lg">Location & Details</h2>
+            <h2 className="text-3xl font-bold text-[#133215] mb-2">Join Sanjeevani</h2>
+            <p className="text-gray-600 mb-6">Create your account to get started.</p>
+
+            <form onSubmit={submit} className="space-y-3">
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name <span className="text-red-500">*</span></label>
+                <input value={formData.name} name="name" onChange={handleChange} placeholder="Your full name"
+                  className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" required />
               </div>
-              <FormInput label="Region / District" name="region" value={form.region} onChange={set} placeholder="e.g. Bhopal, Ujjain" required />
-              <div className="grid grid-cols-2 gap-4">
-                <FormInput label="City" name="city" value={form.city} onChange={set} placeholder="City" />
-                <FormInput label="State" name="state" value={form.state} onChange={set} placeholder="State" />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Age <span className="text-red-500">*</span></label>
+                  <input value={formData.age} name="age" type="number" onChange={handleChange} placeholder="Age"
+                    className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender <span className="text-red-500">*</span></label>
+                  <select name="gender" onChange={handleChange} value={formData.gender}
+                    className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" required>
+                    <option value="">Select</option>
+                    {genders.map(g => <option key={g} value={g}>{g.charAt(0).toUpperCase() + g.slice(1)}</option>)}
+                  </select>
+                </div>
               </div>
-              <FormInput label="Pincode" name="pincode" value={form.pincode} onChange={set} placeholder="6-digit pincode" required />
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role <span className="text-red-500">*</span></label>
+                <select name="role" onChange={handleChange} value={formData.role}
+                  className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" required>
+                  <option value="">Select Role</option>
+                  {roles.map(r => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number <span className="text-red-500">*</span></label>
+                <input value={formData.phoneNumber} name="phoneNumber" type="tel" onChange={handleChange} placeholder="10-digit phone number"
+                  className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" required />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password <span className="text-red-500">*</span></label>
+                  <input value={formData.password} name="password" type="password" onChange={handleChange} placeholder="Min 6 chars"
+                    className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password <span className="text-red-500">*</span></label>
+                  <input value={formData.confirmPassword} name="confirmPassword" type="password" onChange={handleChange} placeholder="Repeat"
+                    className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" required />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Region / District <span className="text-red-500">*</span></label>
+                <input value={formData.region} name="region" onChange={handleChange} placeholder="e.g. Bhopal, Ujjain"
+                  className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" required />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                  <input value={formData.city} name="city" onChange={handleChange} placeholder="City"
+                    className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                  <input value={formData.state} name="state" onChange={handleChange} placeholder="State"
+                    className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Pincode <span className="text-red-500">*</span></label>
+                <input value={formData.pincode} name="pincode" onChange={handleChange} placeholder="6-digit pincode"
+                  className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" required />
+              </div>
+
               {needsOrg && (
-                <>
-                  <FormInput
-                    label={form.role === 'lab' ? 'Lab Name' : form.role === 'transporter' ? 'Transport Company Name' : 'Company Name'}
-                    name="organizationName" value={form.organizationName} onChange={set}
-                    placeholder="Organization name"
-                  />
-                  <FormInput label="License / Registration Number" name="licenseNumber" value={form.licenseNumber} onChange={set} placeholder="Optional" />
-                </>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {formData.role === "lab" ? "Lab Name" : formData.role === "transporter" ? "Transport Company" : "Company Name"}
+                  </label>
+                  <input value={formData.organizationName} name="organizationName" onChange={handleChange} placeholder="Organization name"
+                    className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#92B775] focus:border-[#92B775]" />
+                </div>
               )}
-              <button type="submit" disabled={loading} className="w-full py-3 bg-[#133215] text-white font-bold rounded-xl hover:bg-[#1a431d] transition disabled:bg-gray-400 flex items-center justify-center gap-2">
-                {loading && <Spinner size="sm" />}
-                {loading ? 'Creating Account...' : 'Create Account'}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 px-4 bg-[#92B775] text-white font-semibold rounded-lg hover:bg-[#82a365] transition-colors duration-300 shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed flex justify-center items-center mt-2"
+              >
+                {loading ? (
+                  <svg className="animate-spin h-5 w-5 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                  </svg>
+                ) : null}
+                {loading ? "Registering..." : "Register"}
               </button>
             </form>
-          )}
-
-          <p className="text-center text-sm text-gray-500 mt-6">
-            Already have an account?{' '}
-            <Link to="/signin" className="text-[#133215] font-semibold hover:underline">Sign In</Link>
-          </p>
+          </div>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default Signup;
